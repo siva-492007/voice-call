@@ -1,5 +1,5 @@
 import './App.css';
-import VoiceCall from './Components/VoiceCall/basicVoiceCall';
+import VoiceCall from './Components/VoiceCall/OfficialVoiceCall';
 
 function App() {
   return (

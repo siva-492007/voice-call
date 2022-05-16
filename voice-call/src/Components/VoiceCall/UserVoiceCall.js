@@ -1,10 +1,13 @@
 import AgoraRTC from "agora-rtc-sdk-ng"
 import {useEffect} from 'react'
 import axios from 'axios'
+import io from "socket.io-client";
 
 const appId = '78396c152c624a65b212ca2922a1fa6c'
 const channelName = 'demoChannel'
-const tokenServerURL = 'http://127.0.0.1:8080/rtc-token'
+const tokenServerURL = 'http://127.0.0.1:8090/rtc-token'
+const socketURL = 'http://127.0.0.1:9080'
+
 
 let rtc = {
     localAudioTrack: null,
@@ -14,10 +17,47 @@ let rtc = {
 let options = {
     appId: appId,
     channel: channelName,
-    uid: 123458,
-    role: 'publisher',
+    uid: 98765, // user's ID. It should not match with any of the official's ID
+    role: 'audience',
     tokenType: 'uid'
 };
+
+const socket = io( socketURL, { upgrade: false, transports: ['websocket'] });
+
+let socketId
+
+let data = {
+    uid: options.uid
+}
+
+let officialId
+
+socket.on('connect', () => {
+   
+    socketId = socket.id
+    console.log('user connected! ', socketId)
+
+    socket.emit('uid', data)
+
+    socket.on('officialOnCall', (data) => {
+        officialId = data.officialId
+
+        console.log('official on call: ', officialId)
+
+        window.alert('official on call')
+        // open the pop up with a button with ATTEND and END button
+        // When ATTEND button is clicked, initialise voice call.
+        handeVoiceCallStart()
+
+        // when END button is clicked, end voice call.
+    })
+
+    socket.on('officialEndedCall', () => {
+        // official ended call
+        handleOfficialEndCall()
+    })
+})
+
 
 
 const handeVoiceCallStart = async () => {
@@ -49,9 +89,22 @@ const handeVoiceCallStart = async () => {
     //notify the user and pop up a modal with a button 'connect' to join the voice call channel
 }
 
+const handleOfficialEndCall = async () => {
+    rtc.localAudioTrack.close();
+    await rtc.client.leave();
+    window.alert('official ended call !')
+}
+
 const handleVoiceCallEnd = async () => {
     rtc.localAudioTrack.close();
     await rtc.client.leave();
+    window.alert('you (user) disconected the call !')
+
+    // to notify the offical that user has cut the call
+    let newData = {
+        officialId: officialId
+    }
+    socket.emit('endCallByUser', newData)
 }
 
 const VoiceCall = () => {
@@ -69,16 +122,16 @@ const VoiceCall = () => {
 
             rtc.client.on("user-unpublished", async (user) => {
                 console.log('unsubscribed user: ', user.uid)
-                await rtc.client.unsubscribe(user);
+                await rtc.client.unsubscribe(user);                
             });
         })
     }, [])
 
     return(
         <div>
-            <button onClick={()=>handeVoiceCallStart()} >
+            {/* <button >
                 Call
-            </button>
+            </button> */}
             <button onClick={()=>handleVoiceCallEnd() } >
                 End
             </button>
